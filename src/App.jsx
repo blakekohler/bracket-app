@@ -5,31 +5,31 @@ import { useState, useEffect, useRef, createContext, useContext } from "react";
 const PRESET = [
   { name: "Taylor Swift",                 emoji: "🎤", color: "#c06dc9", wiki: "Taylor Swift" },
   { name: "Pizza",                        emoji: "🍕", color: "#e85d2a", wiki: "Pizza" },
-  { name: "Nike",                         emoji: "👟", color: "#111111", brand: "nike.com" },
-  { name: "Chick-fil-A",                  emoji: "🍗", color: "#dd2929", brand: "chick-fil-a.com" },
-  { name: "Minecraft",                    emoji: "⛏️", color: "#5a9e36", brand: "minecraft.net" },
+  { name: "Nike",                         emoji: "👟", color: "#111111", wiki: "Nike, Inc." },
+  { name: "Chick-fil-A",                  emoji: "🍗", color: "#dd2929", wiki: "Chick-fil-A" },
+  { name: "Minecraft",                    emoji: "⛏️", color: "#5a9e36", wiki: "Minecraft" },
   { name: "Disneyland",                   emoji: "🏰", color: "#1a73e8", wiki: "Disneyland" },
-  { name: "Dr Pepper",                    emoji: "🥤", color: "#7b2d8b", brand: "drpepper.com" },
+  { name: "Dr Pepper",                    emoji: "🥤", color: "#7b2d8b", wiki: "Dr Pepper" },
   { name: "John Cena",                    emoji: "💪", color: "#1a5c8a", wiki: "John Cena" },
   { name: "Wicked",                       emoji: "✨", color: "#1a6b2a", wiki: "Wicked (2024 film)" },
   { name: "Bishop Ellis",                 emoji: "⛪", color: "#2471a3", wiki: null },
   { name: "S'mores",                      emoji: "🍫", color: "#7b4f2e", wiki: "S'more" },
   { name: "Cheese",                       emoji: "🧀", color: "#e8a800", wiki: "Cheese" },
-  { name: "YouTube",                      emoji: "▶️", color: "#ff0000", brand: "youtube.com" },
+  { name: "YouTube",                      emoji: "▶️", color: "#ff0000", wiki: "YouTube" },
   { name: "Nachos",                       emoji: "🌮", color: "#e0891a", wiki: "Nachos" },
   { name: "Movie Night",                  emoji: "🎬", color: "#2c3e50", wiki: "Film" },
   { name: "Sleeping in",                  emoji: "😴", color: "#7d5fc7", wiki: "Sleep" },
-  { name: "Panda Express",                emoji: "🐼", color: "#cc0000", brand: "pandaexpress.com" },
-  { name: "NFL",                          emoji: "🏈", color: "#013369", brand: "nfl.com" },
+  { name: "Panda Express",                emoji: "🐼", color: "#cc0000", wiki: "Panda Express" },
+  { name: "NFL",                          emoji: "🏈", color: "#013369", wiki: "National Football League" },
   { name: "Roller Coasters",              emoji: "🎢", color: "#e33030", wiki: "Roller coaster" },
-  { name: "Takis",                        emoji: "🌶️", color: "#cc2200", brand: "takis.com" },
+  { name: "Takis",                        emoji: "🌶️", color: "#cc2200", wiki: "Takis (snack)" },
   { name: "Basketball",                   emoji: "🏀", color: "#e55a1a", wiki: "Basketball" },
   { name: "Harry Potter",                 emoji: "⚡", color: "#8b0000", wiki: "Harry Potter" },
   { name: "Hot Chocolate",                emoji: "☕", color: "#6f4e37", wiki: "Hot chocolate" },
   { name: "Summer Break",                 emoji: "☀️", color: "#e8960a", wiki: "Summer vacation" },
   { name: "Christmas",                    emoji: "🎄", color: "#cc0000", wiki: "Christmas" },
   { name: "Sushi",                        emoji: "🍣", color: "#c0392b", wiki: "Sushi" },
-  { name: "Legos",                        emoji: "🧩", color: "#d40000", brand: "lego.com" },
+  { name: "Legos",                        emoji: "🧩", color: "#d40000", wiki: "Lego" },
   { name: "Libraries",                    emoji: "📚", color: "#6d4c41", wiki: "Library" },
   { name: "6/7",                          emoji: "🎱", color: "#9b59b6", wiki: null },
   { name: "Board Games",                  emoji: "🎲", color: "#27ae60", wiki: "Board game" },
@@ -521,9 +521,7 @@ export default function App() {
     setTeamCount(32);
     setTeamNames(PRESET.map(t => t.name));
 
-    // Set brand logos immediately via Clearbit
     const imgs = Array(32).fill(null);
-    PRESET.forEach((t, i) => { if (t.brand) imgs[i] = `https://logo.clearbit.com/${t.brand}`; });
     setTeamImages([...imgs]);
 
     // Count how many wiki fetches to do

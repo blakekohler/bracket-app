@@ -168,6 +168,9 @@ function GlobalStyles({ th }) {
       @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
       @keyframes slide-in{from{opacity:0;transform:scale(0.94);}to{opacity:1;transform:scale(1);}}
       @keyframes img-load{from{opacity:0;}to{opacity:1;}}
+      @keyframes confetti-fall{0%{transform:translateY(-100vh) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0;}}
+      @keyframes trophy-bounce{0%,100%{transform:scale(1) rotate(0deg);}25%{transform:scale(1.2) rotate(-5deg);}50%{transform:scale(1.1) rotate(5deg);}75%{transform:scale(1.15) rotate(-3deg);}}
+      @keyframes champion-glow{0%,100%{text-shadow:0 0 20px var(--champ-glow),0 0 40px var(--champ-glow),0 0 60px var(--champ-glow-far);}50%{text-shadow:0 0 40px var(--champ-glow),0 0 80px var(--champ-glow),0 0 120px var(--champ-glow-far);}}
       input::placeholder{color:${th.inputPlaceholder};}
       input:focus{outline:none;}
       .team-row:focus-within{border-color:${th.accent}66!important;}
@@ -386,6 +389,116 @@ function MatchupModal({ match, teamMeta, round, numRounds, onPick, onClose, tvMo
   );
 }
 
+// ─── Champion Celebration Modal ────────────────────────────────────────────────
+function ChampionModal({ champion, meta, onClose }) {
+  const { th } = useCtx();
+  const confettiColors = ['#ff0000','#00ff00','#0066ff','#ffff00','#ff00ff','#00ffff','#ff8800','#88ff00','#ff0088','#CAFF00'];
+  const confettiPieces = Array.from({ length: 150 }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 3,
+    duration: 2 + Math.random() * 3,
+    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+    size: 6 + Math.random() * 10,
+    shape: Math.random() > 0.5 ? 'square' : 'circle',
+  }));
+
+  return (
+    <div style={{ position:'fixed',inset:0,zIndex:400,background:th.overlay,backdropFilter:'blur(20px)',display:'flex',alignItems:'center',justifyContent:'center',animation:'fade-in 0.3s ease' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Confetti */}
+      <div style={{ position:'absolute',inset:0,overflow:'hidden',pointerEvents:'none' }}>
+        {confettiPieces.map(p => (
+          <div key={p.id} style={{
+            position:'absolute',
+            left:`${p.left}%`,
+            top:0,
+            width:p.size,
+            height:p.shape === 'circle' ? p.size : p.size * 1.5,
+            background:p.color,
+            borderRadius:p.shape === 'circle' ? '50%' : 2,
+            animation:`confetti-fall ${p.duration}s linear ${p.delay}s infinite`,
+            opacity:0.9,
+          }}/>
+        ))}
+      </div>
+
+      {/* Modal Content */}
+      <div style={{
+        background:`linear-gradient(145deg,${th.modalBg},${th.bgDeep})`,
+        border:`3px solid ${th.accent}`,
+        borderRadius:32,
+        padding:'60px 80px',
+        maxWidth:'90vw',
+        textAlign:'center',
+        position:'relative',
+        boxShadow:`0 0 100px ${th.champGlow},0 0 200px ${th.champGlowFar}`,
+        animation:'slide-in 0.4s ease',
+      }}>
+        {/* Trophy */}
+        <div style={{ fontSize:120,marginBottom:20,animation:'trophy-bounce 1s ease infinite' }}>🏆</div>
+
+        {/* Champion Label */}
+        <div style={{ fontFamily:"'Rajdhani',sans-serif",fontSize:14,fontWeight:700,letterSpacing:8,color:th.textDim,textTransform:'uppercase',marginBottom:8 }}>
+          TOURNAMENT CHAMPION
+        </div>
+
+        {/* Champion Name */}
+        <div style={{
+          fontFamily:"'Bebas Neue',cursive",
+          fontSize:'clamp(48px,10vw,80px)',
+          letterSpacing:6,
+          color:th.accent,
+          lineHeight:1,
+          marginBottom:24,
+          textTransform:'uppercase',
+          animation:'champion-glow 2s ease infinite',
+        }}>
+          {champion}
+        </div>
+
+        {/* Champion Image */}
+        <div style={{
+          width:160,height:160,
+          margin:'0 auto 32px',
+          borderRadius:20,
+          overflow:'hidden',
+          border:`4px solid ${th.accent}`,
+          boxShadow:`0 0 40px ${th.champGlow}`,
+          background:meta?.image ? 'none' : `${meta?.color || '#6666ff'}22`,
+          display:'flex',alignItems:'center',justifyContent:'center',
+        }}>
+          {meta?.image
+            ? <img src={meta.image} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+            : <span style={{fontSize:80}}>{meta?.emoji || '?'}</span>
+          }
+        </div>
+
+        {/* Close Button */}
+        <button onClick={onClose} style={{
+          background:th.btnPrimBg,
+          border:'none',
+          borderRadius:14,
+          padding:'18px 60px',
+          fontFamily:"'Bebas Neue',cursive",
+          fontSize:28,
+          letterSpacing:4,
+          color:th.btnPrimText,
+          cursor:'pointer',
+          boxShadow:`0 0 40px ${th.winShadow}`,
+          transition:'all 0.2s',
+        }}
+          onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.05)';e.currentTarget.style.boxShadow=`0 0 60px ${th.champGlow}`;}}
+          onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=`0 0 40px ${th.winShadow}`;}}
+        >
+          VIEW BRACKET
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Icon button ───────────────────────────────────────────────────────────────
 function IconBtn({ onClick, title, children, active, th }) {
   return (
@@ -504,6 +617,7 @@ export default function App() {
   const [rounds, setRounds] = useState(null);
   const [activeM, setActiveM] = useState(null);
   const [champion, setChampion] = useState(null);
+  const [showChampModal, setShowChampModal] = useState(false);
   const [presetLoading, setPresetLoading] = useState(false);
   const [imgLoadCount, setImgLoadCount] = useState(0);
   const [imgTotal, setImgTotal] = useState(0);
@@ -561,7 +675,7 @@ export default function App() {
     const teams = teamNames.slice(0, teamCount).map((t, i) => t.trim() || `Competitor ${i+1}`);
     setTeamMeta(buildMeta(teams, teamImages));
     setRounds(initRounds(teams));
-    setChampion(null); setActiveM(null);
+    setChampion(null); setActiveM(null); setShowChampModal(false);
     setScreen('bracket');
   };
 
@@ -590,75 +704,76 @@ export default function App() {
       if (nr < next.length) { const ni = Math.floor(index/2); if (index%2===0) next[nr][ni].teamA = w; else next[nr][ni].teamB = w; }
       return next;
     });
-    if (round === Math.log2(teamCount) - 1) setChampion(w);
+    if (round === Math.log2(teamCount) - 1) {
+      setChampion(w);
+      setTimeout(() => setShowChampModal(true), 400);
+    }
     setActiveM(null);
   };
 
   const handlePrint = () => {
-    const pSc = SCALES.normal;
+    // Use smaller scale for print to fit better
+    const pSc = { SLOT_H:44, SLOT_W:180, SLOT_GAP:8, MATCHUP_GAP:24, CONN_W:44, PAD:30, logoSize:26, nameFontSize:11, nameLetterSpacing:0.3, roundLabelSize:9, roundLabelLetterSpacing:2, lineW:1.5, borderRadius:6 };
     const pLayout = calcLayout(teamCount, pSc);
     const { totalH, slots, numRounds, ROUND_W } = pLayout;
-    const { SLOT_H, SLOT_W, SLOT_GAP, CONN_W, PAD, logoSize, nameFontSize, nameLetterSpacing, borderRadius, roundLabelSize, lineW } = pSc;
+    const { SLOT_H, SLOT_W, CONN_W, PAD, logoSize, nameFontSize, nameLetterSpacing, borderRadius, roundLabelSize, lineW } = pSc;
     const svgW = numRounds * ROUND_W + SLOT_W;
     const numRoundsVal = Math.log2(teamCount);
+    const bracketW = svgW + CONN_W + 40;
+    const bracketH = totalH + 60;
 
-    // ── Colors (always light for print readability) ──────────────────────────
+    // Colors for print
     const PC = {
-      bg:'#ffffff', text:'#0a0a1a', textDim:'#888899', textTbd:'#ccccdd',
-      accent:'#0a50f0', accentBg:'rgba(10,80,240,0.06)',
-      cardBg:'#ffffff', cardBorder:'#d4d4ec', cardBgLoss:'#f5f5fa',
-      winBorder:'#0a50f0', winShadow:'rgba(10,80,240,0.15)',
-      lineActive:'#0a50f0', lineFilled:'#b0b0d8', lineEmpty:'#e0e0f0',
+      accent:'#2563eb', accentBg:'#eff6ff', accentLight:'#dbeafe',
+      text:'#1e293b', textDim:'#64748b', textTbd:'#cbd5e1',
+      cardBg:'#ffffff', cardBorder:'#e2e8f0', cardBgLoss:'#f8fafc',
+      lineActive:'#2563eb', lineFilled:'#94a3b8', lineEmpty:'#e2e8f0',
     };
 
-    const getRound = (r) => r === numRoundsVal-1 ? 'FINAL' : r === numRoundsVal-2 ? 'SEMIS' : r === numRoundsVal-3 ? 'QUARTERS' : `RD ${r+1}`;
+    const getRound = (r) => r === numRoundsVal-1 ? 'FINAL' : r === numRoundsVal-2 ? 'SEMIS' : r === numRoundsVal-3 ? 'QUARTERS' : `ROUND ${r+1}`;
 
-    // ── Build SVG connector lines ────────────────────────────────────────────
+    // Build SVG lines
     let svgLines = '';
     for (let r = 0; r < numRounds; r++) {
       for (let m = 0; m < slots[r].length; m++) {
         const pos = slots[r][m];
         const match = rounds[r]?.[m];
         const x0 = r * ROUND_W + SLOT_W;
-        const xMid = x0 + (ROUND_W - SLOT_W) * 0.44;
-        const xE   = x0 + (ROUND_W - SLOT_W);
+        const xMid = x0 + (ROUND_W - SLOT_W) * 0.5;
+        const xE = x0 + (ROUND_W - SLOT_W);
         const aW = match?.winner && match.winner === match.teamA;
         const bW = match?.winner && match.winner === match.teamB;
         const cA = aW ? PC.lineActive : match?.teamA ? PC.lineFilled : PC.lineEmpty;
         const cB = bW ? PC.lineActive : match?.teamB ? PC.lineFilled : PC.lineEmpty;
         const cV = (match?.teamA && match?.teamB) ? PC.lineFilled : PC.lineEmpty;
         const cO = match?.winner ? PC.lineActive : PC.lineEmpty;
-        const w = lineW;
-        svgLines += `
-          <line x1="${x0}" y1="${pos.aCy}" x2="${xMid}" y2="${pos.aCy}" stroke="${cA}" stroke-width="${w}" stroke-linecap="round"/>
-          <line x1="${x0}" y1="${pos.bCy}" x2="${xMid}" y2="${pos.bCy}" stroke="${cB}" stroke-width="${w}" stroke-linecap="round"/>
-          <line x1="${xMid}" y1="${pos.aCy}" x2="${xMid}" y2="${pos.bCy}" stroke="${cV}" stroke-width="${w}"/>
-          <line x1="${xMid}" y1="${pos.cy}"  x2="${xE}"   y2="${pos.cy}"  stroke="${cO}" stroke-width="${w}" stroke-linecap="round"/>`;
+        svgLines += `<line x1="${x0}" y1="${pos.aCy}" x2="${xMid}" y2="${pos.aCy}" stroke="${cA}" stroke-width="${lineW}"/>`;
+        svgLines += `<line x1="${x0}" y1="${pos.bCy}" x2="${xMid}" y2="${pos.bCy}" stroke="${cB}" stroke-width="${lineW}"/>`;
+        svgLines += `<line x1="${xMid}" y1="${pos.aCy}" x2="${xMid}" y2="${pos.bCy}" stroke="${cV}" stroke-width="${lineW}"/>`;
+        svgLines += `<line x1="${xMid}" y1="${pos.cy}" x2="${xE}" y2="${pos.cy}" stroke="${cO}" stroke-width="${lineW}"/>`;
       }
     }
 
-    // ── Build slot HTML ──────────────────────────────────────────────────────
+    // Build slots
     const renderSlot = (team, meta, isWin, isLoss, top, left) => {
-      const bg  = isWin ? PC.accentBg : isLoss ? PC.cardBgLoss : team ? PC.cardBg : '#f8f8ff';
-      const brd = isWin ? `2px solid ${PC.winBorder}` : `1.5px solid ${PC.cardBorder}`;
-      const op  = isLoss ? '0.2' : '1';
-      const col = meta?.color || '#6666ff';
-      const imgTag = meta?.image
-        ? `<img src="${meta.image}" style="width:${logoSize}px;height:${logoSize}px;border-radius:5px;object-fit:cover;flex-shrink:0;" crossorigin="anonymous"/>`
-        : `<span style="font-size:${logoSize*0.72}px;line-height:1;width:${logoSize}px;text-align:center;flex-shrink:0;">${meta?.emoji||'?'}</span>`;
-      const stripe = isWin ? `<div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:${PC.accent};border-radius:${borderRadius}px 0 0 ${borderRadius}px;"></div>` : '';
+      const bg = isWin ? PC.accentLight : isLoss ? PC.cardBgLoss : team ? PC.cardBg : '#fafafa';
+      const border = isWin ? `2px solid ${PC.accent}` : `1px solid ${PC.cardBorder}`;
+      const opacity = isLoss ? 0.4 : 1;
       const nameCol = isWin ? PC.accent : PC.text;
-      return `<div style="position:absolute;top:${top}px;left:${left}px;width:${SLOT_W}px;height:${SLOT_H}px;background:${bg};border:${brd};border-radius:${borderRadius}px;display:flex;align-items:center;gap:10px;padding:0 ${Math.round(SLOT_H*0.22)}px;opacity:${op};overflow:hidden;">
-        ${stripe}
+      const imgOrEmoji = meta?.image
+        ? `<img src="${meta.image}" style="width:${logoSize}px;height:${logoSize}px;border-radius:4px;object-fit:cover;"/>`
+        : `<span style="font-size:${logoSize*0.7}px;">${meta?.emoji||'?'}</span>`;
+
+      return `<div style="position:absolute;top:${top}px;left:${left}px;width:${SLOT_W}px;height:${SLOT_H}px;background:${bg};border:${border};border-radius:${borderRadius}px;display:flex;align-items:center;gap:8px;padding:0 10px;opacity:${opacity};">
+        ${isWin ? `<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${PC.accent};border-radius:${borderRadius}px 0 0 ${borderRadius}px;"></div>` : ''}
         ${team ? `
-          <div style="flex-shrink:0;padding-left:${isWin?4:0}px;">${imgTag}</div>
-          <span style="font-family:'Anton',cursive;font-size:${nameFontSize}px;letter-spacing:${nameLetterSpacing}px;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1;text-transform:uppercase;">${team}</span>
-          ${isWin ? `<span style="font-size:${nameFontSize*0.7}px;color:${PC.accent};">✓</span>` : ''}
-        ` : `<span style="font-size:${nameFontSize*0.7}px;color:${PC.textTbd};font-style:italic;">— TBD —</span>`}
+          <div style="flex-shrink:0;${isWin?'margin-left:4px;':''}">${imgOrEmoji}</div>
+          <span style="font-family:Arial,sans-serif;font-weight:bold;font-size:${nameFontSize}px;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-transform:uppercase;">${team}</span>
+          ${isWin ? '<span style="color:#2563eb;font-weight:bold;">✓</span>' : ''}
+        ` : `<span style="font-size:${nameFontSize-1}px;color:${PC.textTbd};font-style:italic;">TBD</span>`}
       </div>`;
     };
 
-    // ── Assemble all slots ───────────────────────────────────────────────────
     let slotsHtml = '';
     if (rounds) slots.forEach((rSlots, r) => rSlots.forEach((pos, m) => {
       const match = rounds[r][m];
@@ -667,83 +782,88 @@ export default function App() {
       slotsHtml += renderSlot(match.teamB, teamMeta[match.teamB], hw && match.winner===match.teamB, hw && match.winner!==match.teamB, pos.bTop, r*ROUND_W);
     }));
 
-    // ── Champion slot ────────────────────────────────────────────────────────
+    // Champion slot
     let champHtml = '';
     if (champion) {
       const fp = slots[numRounds-1]?.[0];
       const meta = teamMeta[champion];
-      const imgTag = meta?.image
-        ? `<img src="${meta.image}" style="width:${logoSize}px;height:${logoSize}px;border-radius:5px;object-fit:cover;flex-shrink:0;" crossorigin="anonymous"/>`
-        : `<span style="font-size:${logoSize*0.72}px;line-height:1;width:${logoSize}px;text-align:center;flex-shrink:0;">${meta?.emoji||'?'}</span>`;
-      champHtml = `<div style="position:absolute;top:${fp.cy-SLOT_H/2}px;left:${numRounds*ROUND_W}px;width:${SLOT_W}px;height:${SLOT_H}px;background:${PC.accentBg};border:2px solid ${PC.accent};border-radius:${borderRadius}px;display:flex;align-items:center;gap:10px;padding:0 ${Math.round(SLOT_H*0.22)}px;overflow:hidden;">
-        <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:${PC.accent};border-radius:${borderRadius}px 0 0 ${borderRadius}px;"></div>
-        ${imgTag}
-        <span style="font-family:'Anton',cursive;font-size:${nameFontSize}px;letter-spacing:${nameLetterSpacing}px;color:${PC.accent};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;line-height:1;text-transform:uppercase;">${champion}</span>
-        <span style="font-size:16px;flex-shrink:0;">🏆</span>
+      const imgOrEmoji = meta?.image
+        ? `<img src="${meta.image}" style="width:${logoSize}px;height:${logoSize}px;border-radius:4px;object-fit:cover;"/>`
+        : `<span style="font-size:${logoSize*0.7}px;">${meta?.emoji||'?'}</span>`;
+      champHtml = `<div style="position:absolute;top:${fp.cy-SLOT_H/2}px;left:${numRounds*ROUND_W}px;width:${SLOT_W}px;height:${SLOT_H}px;background:${PC.accentBg};border:2px solid ${PC.accent};border-radius:${borderRadius}px;display:flex;align-items:center;gap:8px;padding:0 10px;">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${PC.accent};border-radius:${borderRadius}px 0 0 ${borderRadius}px;"></div>
+        <div style="margin-left:4px;">${imgOrEmoji}</div>
+        <span style="font-family:Arial,sans-serif;font-weight:bold;font-size:${nameFontSize}px;color:${PC.accent};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-transform:uppercase;">${champion}</span>
+        <span style="font-size:14px;">🏆</span>
       </div>`;
     }
 
-    // ── Round labels ─────────────────────────────────────────────────────────
+    // Round labels
     let labelsHtml = '';
     for (let r = 0; r < numRounds; r++) {
-      labelsHtml += `<div style="position:absolute;top:-24px;left:${r*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:'Bebas Neue',cursive;font-size:${roundLabelSize}px;letter-spacing:3px;color:${PC.textDim};text-transform:uppercase;">${getRound(r)}</div>`;
+      labelsHtml += `<div style="position:absolute;top:-20px;left:${r*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:Arial,sans-serif;font-size:${roundLabelSize}px;font-weight:bold;letter-spacing:1px;color:${PC.textDim};text-transform:uppercase;">${getRound(r)}</div>`;
     }
-    labelsHtml += `<div style="position:absolute;top:-24px;left:${numRounds*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:'Bebas Neue',cursive;font-size:${roundLabelSize}px;letter-spacing:3px;color:${PC.accent};">CHAMPION</div>`;
+    labelsHtml += `<div style="position:absolute;top:-20px;left:${numRounds*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:Arial,sans-serif;font-size:${roundLabelSize}px;font-weight:bold;letter-spacing:1px;color:${PC.accent};text-transform:uppercase;">CHAMPION</div>`;
 
-    // ── Auto-zoom to fit landscape letter ────────────────────────────────────
-    const totalW = svgW + CONN_W + 40 + PAD * 2;
-    const totalPrintH = totalH + 80 + PAD * 2;
-    const pageW = 1056, pageH = 736; // landscape letter @ 96dpi minus ~8mm margins
-    const zoom = Math.min(pageW / totalW, pageH / totalPrintH, 1).toFixed(4);
-
-    // ── Full HTML document ───────────────────────────────────────────────────
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>The Bracket</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Anton&family=Rajdhani:wght@400;700&display=swap" rel="stylesheet"/>
+  <title>Tournament Bracket</title>
   <style>
-    @page { size: landscape; margin: 8mm; }
-    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body { margin: 0; padding: 0; background: #fff; font-family: 'Rajdhani', sans-serif; }
-    #shell { transform-origin: top left; transform: scale(${zoom}); width: ${Math.round(totalW)}px; }
-    #header { display: flex; align-items: center; justify-content: space-between; padding: 16px ${PAD}px 12px; border-bottom: 2px solid #dde; margin-bottom: 4px; }
-    #bracket { padding: ${PAD}px; position: relative; width: ${svgW+CONN_W+40}px; height: ${totalH+40}px; }
+    @page { size: landscape; margin: 10mm; }
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #fff; }
+    .page { width: 100%; min-height: 100vh; padding: 20px; display: flex; flex-direction: column; }
+    .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
+    .title { font-size: 28px; font-weight: 800; letter-spacing: 4px; color: #2563eb; text-transform: uppercase; }
+    .champion-banner { display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 8px 16px; border-radius: 8px; border: 1px solid #2563eb; }
+    .champion-banner span { font-size: 14px; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 1px; }
+    .date { font-size: 11px; color: #94a3b8; }
+    .bracket-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; overflow: visible; }
+    .bracket { position: relative; margin-top: 30px; }
   </style>
 </head>
 <body>
-<div id="shell">
-  <div id="header">
-    <span style="font-family:'Bebas Neue',cursive;font-size:32px;letter-spacing:8px;color:#0a50f0;">THE BRACKET</span>
-    ${champion ? `<span style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:4px;color:#111;">🏆 CHAMPION: ${champion}</span>` : ''}
-    <span style="font-family:'Rajdhani',sans-serif;font-size:11px;color:#aaa;letter-spacing:1px;">${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span>
+  <div class="page">
+    <div class="header">
+      <div class="title">The Bracket</div>
+      ${champion ? `<div class="champion-banner"><span>🏆</span><span>Champion: ${champion}</span></div>` : '<div></div>'}
+      <div class="date">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+    </div>
+    <div class="bracket-container">
+      <div class="bracket" style="width:${bracketW}px;height:${bracketH}px;">
+        ${labelsHtml}
+        <svg style="position:absolute;top:0;left:0;overflow:visible;" width="${bracketW}" height="${bracketH}">
+          ${svgLines}
+        </svg>
+        ${slotsHtml}
+        ${champHtml}
+      </div>
+    </div>
   </div>
-  <div id="bracket">
-    ${labelsHtml}
-    <svg style="position:absolute;top:0;left:0;overflow:visible;pointer-events:none;" width="${svgW+CONN_W+20}" height="${totalH+20}">
-      ${svgLines}
-    </svg>
-    ${slotsHtml}
-    ${champHtml}
-  </div>
-</div>
-<script>
-  // Wait for fonts + images then print
-  document.fonts.ready.then(() => {
-    const imgs = document.querySelectorAll('img');
-    const loads = Array.from(imgs).map(img =>
-      img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
-    );
-    Promise.all(loads).then(() => setTimeout(() => { window.print(); }, 120));
-  });
-<\/script>
+  <script>
+    window.onload = function() {
+      const imgs = document.querySelectorAll('img');
+      let loaded = 0;
+      const total = imgs.length;
+      if (total === 0) { setTimeout(() => window.print(), 100); return; }
+      imgs.forEach(img => {
+        if (img.complete) { loaded++; if (loaded === total) setTimeout(() => window.print(), 100); }
+        else {
+          img.onload = img.onerror = () => { loaded++; if (loaded === total) setTimeout(() => window.print(), 100); };
+        }
+      });
+    };
+  <\/script>
 </body>
 </html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) { alert('Please allow popups for this page to print.'); return; }
+    const win = window.open('', '_blank', 'width=1100,height=800');
+    if (!win) { alert('Please allow popups to print/save as PDF.'); return; }
     win.document.write(html);
     win.document.close();
   };
@@ -841,6 +961,12 @@ export default function App() {
         {activeM && rounds && (
           <div className="no-print">
           <MatchupModal match={rounds[activeM.round][activeM.index]} teamMeta={teamMeta} round={activeM.round} numRounds={numRoundsVal} onPick={pickWinner} onClose={() => setActiveM(null)} tvMode={tvMode}/>
+          </div>
+        )}
+
+        {showChampModal && champion && (
+          <div className="no-print">
+            <ChampionModal champion={champion} meta={teamMeta[champion]} onClose={() => setShowChampModal(false)}/>
           </div>
         )}
 

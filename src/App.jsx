@@ -712,98 +712,238 @@ export default function App() {
   };
 
   const handlePrint = () => {
-    // Use smaller scale for print to fit better
-    const pSc = { SLOT_H:44, SLOT_W:180, SLOT_GAP:8, MATCHUP_GAP:24, CONN_W:44, PAD:30, logoSize:26, nameFontSize:11, nameLetterSpacing:0.3, roundLabelSize:9, roundLabelLetterSpacing:2, lineW:1.5, borderRadius:6 };
-    const pLayout = calcLayout(teamCount, pSc);
-    const { totalH, slots, numRounds, ROUND_W } = pLayout;
-    const { SLOT_H, SLOT_W, CONN_W, PAD, logoSize, nameFontSize, nameLetterSpacing, borderRadius, roundLabelSize, lineW } = pSc;
-    const svgW = numRounds * ROUND_W + SLOT_W;
+    // Split bracket layout: left half → center ← right half
     const numRoundsVal = Math.log2(teamCount);
-    const bracketW = svgW + CONN_W + 40;
-    const bracketH = totalH + 60;
+    const halfRounds = numRoundsVal - 1; // Rounds per side (excluding final)
+    const numMatchesR0 = teamCount / 4; // First round matches per side
 
-    // Colors for print
+    // Target page dimensions
+    const pageW = 1000;
+    const pageH = 700;
+
+    // Fixed dimensions
+    const SLOT_H = 40;
+    const SLOT_W = 158;
+    const CONN_W = 34;
+    const ROUND_W = SLOT_W + CONN_W;
+    const nameFontSize = 12;
+    const lineW = 3.5;
+    const borderRadius = 5;
+
+    // Calculate width first
+    const sideW = halfRounds * ROUND_W;
+    const centerW = SLOT_W + CONN_W;
+    const bracketW = sideW + centerW + sideW;
+
+    // Calculate vertical spacing to fill available height
+    // totalH = numMatchesR0 * (2*SLOT_H + SLOT_GAP) + (numMatchesR0 - 1) * MATCHUP_GAP
+    // We want totalH to match page aspect ratio with bracketW
+    const targetH = (pageH / pageW) * bracketW;
+    // Solve for gaps: targetH = numMatchesR0 * (2*SLOT_H + SLOT_GAP) + (numMatchesR0-1) * MATCHUP_GAP
+    // Let SLOT_GAP = g and MATCHUP_GAP = 1.5*g (ratio)
+    // targetH = numMatchesR0 * (2*SLOT_H + g) + (numMatchesR0-1) * 1.5*g
+    // targetH = numMatchesR0*2*SLOT_H + numMatchesR0*g + 1.5*g*(numMatchesR0-1)
+    // targetH - numMatchesR0*2*SLOT_H = g * (numMatchesR0 + 1.5*(numMatchesR0-1))
+    const fixedH = numMatchesR0 * 2 * SLOT_H;
+    const gapCoeff = numMatchesR0 + 1.5 * (numMatchesR0 - 1);
+    const g = Math.max(6, (targetH - fixedH) / gapCoeff);
+    const SLOT_GAP = Math.round(g);
+    const MATCHUP_GAP = Math.round(g * 1.5);
+
+    // Colors for print - much darker/thicker lines for visibility
     const PC = {
-      accent:'#2563eb', accentBg:'#eff6ff', accentLight:'#dbeafe',
-      text:'#1e293b', textDim:'#64748b', textTbd:'#cbd5e1',
-      cardBg:'#ffffff', cardBorder:'#e2e8f0', cardBgLoss:'#f8fafc',
-      lineActive:'#2563eb', lineFilled:'#94a3b8', lineEmpty:'#e2e8f0',
+      accent:'#1e40af', accentBg:'#dbeafe', accentLight:'#bfdbfe',
+      text:'#000000', textDim:'#374151', textTbd:'#9ca3af',
+      cardBg:'#ffffff', cardBorder:'#000000', cardBgLoss:'#f3f4f6',
+      lineActive:'#000000', lineFilled:'#000000', lineEmpty:'#000000',
     };
 
-    const getRound = (r) => r === numRoundsVal-1 ? 'FINAL' : r === numRoundsVal-2 ? 'SEMIS' : r === numRoundsVal-3 ? 'QUARTERS' : `ROUND ${r+1}`;
-
-    // Build SVG lines
-    let svgLines = '';
-    for (let r = 0; r < numRounds; r++) {
-      for (let m = 0; m < slots[r].length; m++) {
-        const pos = slots[r][m];
-        const match = rounds[r]?.[m];
-        const x0 = r * ROUND_W + SLOT_W;
-        const xMid = x0 + (ROUND_W - SLOT_W) * 0.5;
-        const xE = x0 + (ROUND_W - SLOT_W);
-        const aW = match?.winner && match.winner === match.teamA;
-        const bW = match?.winner && match.winner === match.teamB;
-        const cA = aW ? PC.lineActive : match?.teamA ? PC.lineFilled : PC.lineEmpty;
-        const cB = bW ? PC.lineActive : match?.teamB ? PC.lineFilled : PC.lineEmpty;
-        const cV = (match?.teamA && match?.teamB) ? PC.lineFilled : PC.lineEmpty;
-        const cO = match?.winner ? PC.lineActive : PC.lineEmpty;
-        svgLines += `<line x1="${x0}" y1="${pos.aCy}" x2="${xMid}" y2="${pos.aCy}" stroke="${cA}" stroke-width="${lineW}"/>`;
-        svgLines += `<line x1="${x0}" y1="${pos.bCy}" x2="${xMid}" y2="${pos.bCy}" stroke="${cB}" stroke-width="${lineW}"/>`;
-        svgLines += `<line x1="${xMid}" y1="${pos.aCy}" x2="${xMid}" y2="${pos.bCy}" stroke="${cV}" stroke-width="${lineW}"/>`;
-        svgLines += `<line x1="${xMid}" y1="${pos.cy}" x2="${xE}" y2="${pos.cy}" stroke="${cO}" stroke-width="${lineW}"/>`;
+    // Calculate positions for one side of the bracket
+    const calcSideLayout = (numTeamsOnSide) => {
+      const mH = 2 * SLOT_H + SLOT_GAP;
+      const mUnit = mH + MATCHUP_GAP;
+      const numMatchesR0 = numTeamsOnSide / 2;
+      const totalH = numMatchesR0 * mH + (numMatchesR0 - 1) * MATCHUP_GAP;
+      const centers = [Array.from({ length: numMatchesR0 }, (_, m) => m * mUnit + mH / 2)];
+      for (let r = 1; r < halfRounds; r++) {
+        const nm = numMatchesR0 / Math.pow(2, r);
+        centers.push(Array.from({ length: nm }, (_, m) => (centers[r-1][m*2] + centers[r-1][m*2+1]) / 2));
       }
-    }
+      const slots = centers.map((_, r) => {
+        const nm = numMatchesR0 / Math.pow(2, r);
+        return Array.from({ length: nm }, (_, m) => {
+          const aCy = r === 0 ? m * mUnit + SLOT_H / 2 : centers[r-1][m*2];
+          const bCy = r === 0 ? m * mUnit + SLOT_H + SLOT_GAP + SLOT_H / 2 : centers[r-1][m*2+1];
+          return { aTop: aCy - SLOT_H / 2, bTop: bCy - SLOT_H / 2, aCy, bCy, cy: (aCy + bCy) / 2 };
+        });
+      });
+      return { totalH, slots, semiCy: centers[halfRounds-1]?.[0] || totalH/2 };
+    };
 
-    // Build slots
-    const renderSlot = (team, meta, isWin, isLoss, top, left) => {
-      const bg = isWin ? PC.accentLight : isLoss ? PC.cardBgLoss : team ? PC.cardBg : '#fafafa';
-      const border = isWin ? `2px solid ${PC.accent}` : `1px solid ${PC.cardBorder}`;
-      const opacity = isLoss ? 0.4 : 1;
+    const halfTeams = teamCount / 2;
+    const sideLayout = calcSideLayout(halfTeams);
+    const { totalH, slots: sideSlots } = sideLayout;
+
+    const bracketH = totalH + 20;
+    const centerX = sideW + CONN_W/2;
+    const centerY = totalH / 2;
+
+    // Helper to get match from split perspective
+    // Left side: first half of matches in each round
+    // Right side: second half of matches in each round
+    const getLeftMatch = (r, m) => rounds[r]?.[m];
+    const getRightMatch = (r, m) => {
+      const matchesInRound = teamCount / Math.pow(2, r + 1);
+      return rounds[r]?.[matchesInRound / 2 + m];
+    };
+
+    const getRoundLabel = (r) => r === halfRounds-1 ? 'SEMIS' : r === halfRounds-2 ? 'QUARTERS' : `RD ${r+1}`;
+
+    // Render slot helper - no images/emojis for print
+    const renderSlot = (team, meta, isWin, isLoss, top, left, mirrored = false) => {
+      const bg = isWin ? PC.accentLight : isLoss ? PC.cardBgLoss : team ? PC.cardBg : '#f8f8f8';
+      const border = isWin ? `2px solid ${PC.accent}` : `2px solid ${PC.cardBorder}`;
+      const opacity = isLoss ? 0.35 : 1;
       const nameCol = isWin ? PC.accent : PC.text;
-      const imgOrEmoji = meta?.image
-        ? `<img src="${meta.image}" style="width:${logoSize}px;height:${logoSize}px;border-radius:4px;object-fit:cover;"/>`
-        : `<span style="font-size:${logoSize*0.7}px;">${meta?.emoji||'?'}</span>`;
+      const flexDir = mirrored ? 'row-reverse' : 'row';
+      const textAlign = mirrored ? 'right' : 'left';
+      const winBar = isWin ? (mirrored
+        ? `<div style="position:absolute;right:0;top:0;bottom:0;width:3px;background:${PC.accent};border-radius:0 ${borderRadius}px ${borderRadius}px 0;"></div>`
+        : `<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${PC.accent};border-radius:${borderRadius}px 0 0 ${borderRadius}px;"></div>`) : '';
 
-      return `<div style="position:absolute;top:${top}px;left:${left}px;width:${SLOT_W}px;height:${SLOT_H}px;background:${bg};border:${border};border-radius:${borderRadius}px;display:flex;align-items:center;gap:8px;padding:0 10px;opacity:${opacity};">
-        ${isWin ? `<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${PC.accent};border-radius:${borderRadius}px 0 0 ${borderRadius}px;"></div>` : ''}
+      return `<div style="position:absolute;top:${top}px;left:${left}px;width:${SLOT_W}px;height:${SLOT_H}px;background:${bg};border:${border};border-radius:${borderRadius}px;display:flex;flex-direction:${flexDir};align-items:center;gap:5px;padding:0 10px;opacity:${opacity};">
+        ${winBar}
         ${team ? `
-          <div style="flex-shrink:0;${isWin?'margin-left:4px;':''}">${imgOrEmoji}</div>
-          <span style="font-family:Arial,sans-serif;font-weight:bold;font-size:${nameFontSize}px;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-transform:uppercase;">${team}</span>
-          ${isWin ? '<span style="color:#2563eb;font-weight:bold;">✓</span>' : ''}
-        ` : `<span style="font-size:${nameFontSize-1}px;color:${PC.textTbd};font-style:italic;">TBD</span>`}
+          <span style="font-family:Arial,sans-serif;font-weight:bold;font-size:${nameFontSize}px;color:${nameCol};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-transform:uppercase;text-align:${textAlign};${isWin?(mirrored?'margin-right:3px;':'margin-left:3px;'):''}">${team}</span>
+          ${isWin ? `<span style="color:${PC.accent};font-weight:bold;font-size:${nameFontSize}px;">✓</span>` : ''}
+        ` : ''}
       </div>`;
     };
 
     let slotsHtml = '';
-    if (rounds) slots.forEach((rSlots, r) => rSlots.forEach((pos, m) => {
-      const match = rounds[r][m];
-      const hw = !!match.winner;
-      slotsHtml += renderSlot(match.teamA, teamMeta[match.teamA], hw && match.winner===match.teamA, hw && match.winner!==match.teamA, pos.aTop, r*ROUND_W);
-      slotsHtml += renderSlot(match.teamB, teamMeta[match.teamB], hw && match.winner===match.teamB, hw && match.winner!==match.teamB, pos.bTop, r*ROUND_W);
-    }));
+    let svgLines = '';
 
-    // Champion slot
-    let champHtml = '';
-    if (champion) {
-      const fp = slots[numRounds-1]?.[0];
-      const meta = teamMeta[champion];
-      const imgOrEmoji = meta?.image
-        ? `<img src="${meta.image}" style="width:${logoSize}px;height:${logoSize}px;border-radius:4px;object-fit:cover;"/>`
-        : `<span style="font-size:${logoSize*0.7}px;">${meta?.emoji||'?'}</span>`;
-      champHtml = `<div style="position:absolute;top:${fp.cy-SLOT_H/2}px;left:${numRounds*ROUND_W}px;width:${SLOT_W}px;height:${SLOT_H}px;background:${PC.accentBg};border:2px solid ${PC.accent};border-radius:${borderRadius}px;display:flex;align-items:center;gap:8px;padding:0 10px;">
-        <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${PC.accent};border-radius:${borderRadius}px 0 0 ${borderRadius}px;"></div>
-        <div style="margin-left:4px;">${imgOrEmoji}</div>
-        <span style="font-family:Arial,sans-serif;font-weight:bold;font-size:${nameFontSize}px;color:${PC.accent};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-transform:uppercase;">${champion}</span>
-        <span style="font-size:14px;">🏆</span>
-      </div>`;
+    // LEFT SIDE (rounds go left to right, toward center)
+    for (let r = 0; r < halfRounds; r++) {
+      const rSlots = sideSlots[r];
+      for (let m = 0; m < rSlots.length; m++) {
+        const pos = rSlots[m];
+        const match = getLeftMatch(r, m);
+        const hw = !!match?.winner;
+        const x = r * ROUND_W;
+
+        slotsHtml += renderSlot(match?.teamA, teamMeta[match?.teamA], hw && match.winner===match.teamA, hw && match.winner!==match.teamA, pos.aTop, x, false);
+        slotsHtml += renderSlot(match?.teamB, teamMeta[match?.teamB], hw && match.winner===match.teamB, hw && match.winner!==match.teamB, pos.bTop, x, false);
+
+        // Draw connector lines (to the right) - use explicit center calculation
+        const x0 = x + SLOT_W;
+        const xMid = x0 + CONN_W * 0.5;
+        const xE = x0 + CONN_W;
+        const aCenterY = pos.aTop + SLOT_H / 2;
+        const bCenterY = pos.bTop + SLOT_H / 2;
+        const matchCenterY = (aCenterY + bCenterY) / 2;
+
+        svgLines += `<line x1="${x0}" y1="${aCenterY}" x2="${xMid}" y2="${aCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        svgLines += `<line x1="${x0}" y1="${bCenterY}" x2="${xMid}" y2="${bCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        svgLines += `<line x1="${xMid}" y1="${aCenterY}" x2="${xMid}" y2="${bCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        if (r < halfRounds - 1) {
+          svgLines += `<line x1="${xMid}" y1="${matchCenterY}" x2="${xE}" y2="${matchCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        }
+      }
     }
+
+    // RIGHT SIDE (mirrored, rounds go right to left, toward center)
+    const rightStartX = sideW + centerW;
+    for (let r = 0; r < halfRounds; r++) {
+      const rSlots = sideSlots[r];
+      for (let m = 0; m < rSlots.length; m++) {
+        const pos = rSlots[m];
+        const match = getRightMatch(r, m);
+        const hw = !!match?.winner;
+        const x = rightStartX + (halfRounds - 1 - r) * ROUND_W;
+
+        slotsHtml += renderSlot(match?.teamA, teamMeta[match?.teamA], hw && match.winner===match.teamA, hw && match.winner!==match.teamA, pos.aTop, x, true);
+        slotsHtml += renderSlot(match?.teamB, teamMeta[match?.teamB], hw && match.winner===match.teamB, hw && match.winner!==match.teamB, pos.bTop, x, true);
+
+        // Draw connector lines (to the left for right side) - use explicit center calculation
+        const x0 = x; // Line starts at left edge of slot
+        const xMid = x0 - CONN_W * 0.5;
+        const xE = x0 - CONN_W;
+        const aCenterY = pos.aTop + SLOT_H / 2;
+        const bCenterY = pos.bTop + SLOT_H / 2;
+        const matchCenterY = (aCenterY + bCenterY) / 2;
+
+        svgLines += `<line x1="${x0}" y1="${aCenterY}" x2="${xMid}" y2="${aCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        svgLines += `<line x1="${x0}" y1="${bCenterY}" x2="${xMid}" y2="${bCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        svgLines += `<line x1="${xMid}" y1="${aCenterY}" x2="${xMid}" y2="${bCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        if (r < halfRounds - 1) {
+          svgLines += `<line x1="${xMid}" y1="${matchCenterY}" x2="${xE}" y2="${matchCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+        }
+      }
+    }
+
+    // CENTER: Two FINAL slots side by side, WINNER slot below
+    // Get the semi-final matchup position (there's only one per side)
+    const leftSemi = sideSlots[halfRounds - 1]?.[0];
+    const leftSemiMidX = (halfRounds - 1) * ROUND_W + SLOT_W + CONN_W * 0.5;
+    const leftSemiCy = leftSemi ? (leftSemi.aTop + SLOT_H / 2 + leftSemi.bTop + SLOT_H / 2) / 2 : centerY;
+
+    const rightSemiMidX = rightStartX - CONN_W * 0.5;
+    const rightSemi = sideSlots[halfRounds - 1]?.[0];
+    const rightSemiCy = rightSemi ? (rightSemi.aTop + SLOT_H / 2 + rightSemi.bTop + SLOT_H / 2) / 2 : centerY;
+
+    // Two FINAL slots side by side at center
+    const finalGap = 20; // Gap between the two final slots
+    const leftFinalX = sideW + (centerW - SLOT_W * 2 - finalGap) / 2;
+    const rightFinalX = leftFinalX + SLOT_W + finalGap;
+    const finalY = centerY - SLOT_H / 2;
+    const finalCenterY = finalY + SLOT_H / 2;
+
+    // WINNER slot centered below (shifted slightly left)
+    const winnerX = sideW + (centerW - SLOT_W) / 2 - 10;
+    const winnerY = centerY + SLOT_H + MATCHUP_GAP * 2;
+
+    // Render FINAL slots
+    slotsHtml += renderSlot(null, null, false, false, finalY, leftFinalX, false);
+    slotsHtml += renderSlot(null, null, false, false, finalY, rightFinalX, false);
+
+    // Winner slot
+    const champHtml = `
+      <div style="position:absolute;top:${winnerY}px;left:${winnerX}px;width:${SLOT_W}px;height:${SLOT_H}px;background:#ffffff;border:2px solid ${PC.cardBorder};border-radius:${borderRadius}px;"></div>
+      <div style="position:absolute;top:${winnerY + SLOT_H + 6}px;left:${winnerX}px;width:${SLOT_W}px;text-align:center;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;letter-spacing:2px;color:${PC.textDim};text-transform:uppercase;">WINNER</div>`;
+
+    // Line from left semi connector to left final slot (center of left edge)
+    svgLines += `<line x1="${leftSemiMidX}" y1="${leftSemiCy}" x2="${leftFinalX}" y2="${finalCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+
+    // Line from right semi connector to right final slot (center of right edge)
+    svgLines += `<line x1="${rightSemiMidX}" y1="${rightSemiCy}" x2="${rightFinalX + SLOT_W}" y2="${finalCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+
+    // Horizontal line between center of the two FINAL slots
+    svgLines += `<line x1="${leftFinalX + SLOT_W}" y1="${finalCenterY}" x2="${rightFinalX}" y2="${finalCenterY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
+
+    // Vertical line from center of horizontal connector down to WINNER
+    const winnerConnectX = (leftFinalX + SLOT_W + rightFinalX) / 2;
+    svgLines += `<line x1="${winnerConnectX}" y1="${finalCenterY}" x2="${winnerConnectX}" y2="${winnerY}" stroke="${PC.lineEmpty}" stroke-width="${lineW}"/>`;
 
     // Round labels
     let labelsHtml = '';
-    for (let r = 0; r < numRounds; r++) {
-      labelsHtml += `<div style="position:absolute;top:-20px;left:${r*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:Arial,sans-serif;font-size:${roundLabelSize}px;font-weight:bold;letter-spacing:1px;color:${PC.textDim};text-transform:uppercase;">${getRound(r)}</div>`;
+    // Left side labels
+    for (let r = 0; r < halfRounds; r++) {
+      labelsHtml += `<div style="position:absolute;top:-18px;left:${r*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:Arial,sans-serif;font-size:8px;font-weight:bold;letter-spacing:1px;color:${PC.textDim};text-transform:uppercase;">${getRoundLabel(r)}</div>`;
     }
-    labelsHtml += `<div style="position:absolute;top:-20px;left:${numRounds*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:Arial,sans-serif;font-size:${roundLabelSize}px;font-weight:bold;letter-spacing:1px;color:${PC.accent};text-transform:uppercase;">CHAMPION</div>`;
+    // FINAL label (above the two final slots)
+    labelsHtml += `<div style="position:absolute;top:${finalY - 18}px;left:${leftFinalX}px;width:${SLOT_W * 2 + finalGap}px;text-align:center;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;letter-spacing:2px;color:${PC.textDim};text-transform:uppercase;">FINAL</div>`;
+    // Right side labels (mirrored order)
+    for (let r = 0; r < halfRounds; r++) {
+      labelsHtml += `<div style="position:absolute;top:-18px;left:${rightStartX + (halfRounds - 1 - r)*ROUND_W}px;width:${SLOT_W}px;text-align:center;font-family:Arial,sans-serif;font-size:8px;font-weight:bold;letter-spacing:1px;color:${PC.textDim};text-transform:uppercase;">${getRoundLabel(r)}</div>`;
+    }
+
+    // Calculate scale to fit page
+    const scaleX = pageW / bracketW;
+    const scaleY = pageH / bracketH;
+    const scaleFactor = Math.min(scaleX, scaleY);
+    const scaledW = bracketW * scaleFactor;
+    const scaledH = bracketH * scaleFactor;
 
     const html = `<!DOCTYPE html>
 <html>
@@ -811,31 +951,26 @@ export default function App() {
   <meta charset="utf-8"/>
   <title>Tournament Bracket</title>
   <style>
-    @page { size: landscape; margin: 10mm; }
+    @page { size: letter landscape; margin: 5mm; }
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      html, body { width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; }
+      .page { width: 100%; height: 100%; page-break-inside: avoid; }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #fff; }
-    .page { width: 100%; min-height: 100vh; padding: 20px; display: flex; flex-direction: column; }
-    .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
-    .title { font-size: 28px; font-weight: 800; letter-spacing: 4px; color: #2563eb; text-transform: uppercase; }
-    .champion-banner { display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 8px 16px; border-radius: 8px; border: 1px solid #2563eb; }
-    .champion-banner span { font-size: 14px; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 1px; }
-    .date { font-size: 11px; color: #94a3b8; }
-    .bracket-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; overflow: visible; }
-    .bracket { position: relative; margin-top: 30px; }
+    .page { width: 100%; height: 100vh; padding: 4px 8px; display: flex; flex-direction: column; overflow: hidden; }
+    .bracket-container { flex: 1; display: flex; justify-content: center; align-items: center; }
+    .bracket-wrapper { width: ${scaledW}px; height: ${scaledH}px; overflow: visible; }
+    .bracket { position: relative; transform-origin: top left; transform: scale(${scaleFactor}); width: ${bracketW}px; height: ${bracketH}px; }
+    svg line { stroke-linecap: round; }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="header">
-      <div class="title">The Bracket</div>
-      ${champion ? `<div class="champion-banner"><span>🏆</span><span>Champion: ${champion}</span></div>` : '<div></div>'}
-      <div class="date">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-    </div>
     <div class="bracket-container">
-      <div class="bracket" style="width:${bracketW}px;height:${bracketH}px;">
+      <div class="bracket-wrapper">
+      <div class="bracket" style="padding-top:20px;">
         ${labelsHtml}
         <svg style="position:absolute;top:0;left:0;overflow:visible;" width="${bracketW}" height="${bracketH}">
           ${svgLines}
@@ -843,20 +978,12 @@ export default function App() {
         ${slotsHtml}
         ${champHtml}
       </div>
+      </div>
     </div>
   </div>
   <script>
     window.onload = function() {
-      const imgs = document.querySelectorAll('img');
-      let loaded = 0;
-      const total = imgs.length;
-      if (total === 0) { setTimeout(() => window.print(), 100); return; }
-      imgs.forEach(img => {
-        if (img.complete) { loaded++; if (loaded === total) setTimeout(() => window.print(), 100); }
-        else {
-          img.onload = img.onerror = () => { loaded++; if (loaded === total) setTimeout(() => window.print(), 100); };
-        }
-      });
+      setTimeout(() => window.print(), 100);
     };
   <\/script>
 </body>

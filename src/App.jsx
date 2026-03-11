@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from "react";
 
 // ─── Preloaded bracket data ────────────────────────────────────────────────────
 // brand: domain for Clearbit logo API | wiki: Wikipedia article title for thumb
@@ -95,6 +95,9 @@ const ACOLORS = ['#ff4757','#2ed573','#1e90ff','#ffa502','#a29bfe','#fd79a8','#0
 
 const Ctx = createContext(null);
 const useCtx = () => useContext(Ctx);
+
+// ─── Persistence ────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'tournament-bracket-state';
 
 // ─── Layout Engine ─────────────────────────────────────────────────────────────
 function calcLayout(n, sc) {
@@ -606,21 +609,48 @@ function SetupScreen({ teamCount, setTeamCount, teamNames, setTeamNames, teamIma
 
 // ─── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [dark, setDark] = useState(true);
-  const [tvMode, setTvMode] = useState(false);
-  const [screen, setScreen] = useState('setup');
-  const [teamCount, setTeamCount] = useState(8);
-  const [teamNames, setTeamNames] = useState(Array.from({length:8},(_,i)=>`Team ${i+1}`));
-  const [teamImages, setTeamImages] = useState(Array(32).fill(null));
+  // Load saved state from localStorage on mount
+  const savedState = useMemo(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  }, []);
+
+  const [dark, setDark] = useState(savedState?.dark ?? true);
+  const [tvMode, setTvMode] = useState(savedState?.tvMode ?? false);
+  const [screen, setScreen] = useState(savedState?.screen ?? 'setup');
+  const [teamCount, setTeamCount] = useState(savedState?.teamCount ?? 8);
+  const [teamNames, setTeamNames] = useState(savedState?.teamNames ?? Array.from({length:8},(_,i)=>`Team ${i+1}`));
+  const [teamImages, setTeamImages] = useState(savedState?.teamImages ?? Array(32).fill(null));
   const [setupEmojis] = useState(() => [...EMOJIS].sort(() => Math.random() - 0.5));
-  const [teamMeta, setTeamMeta] = useState({});
-  const [rounds, setRounds] = useState(null);
+  const [teamMeta, setTeamMeta] = useState(savedState?.teamMeta ?? {});
+  const [rounds, setRounds] = useState(savedState?.rounds ?? null);
   const [activeM, setActiveM] = useState(null);
-  const [champion, setChampion] = useState(null);
+  const [champion, setChampion] = useState(savedState?.champion ?? null);
   const [showChampModal, setShowChampModal] = useState(false);
   const [presetLoading, setPresetLoading] = useState(false);
   const [imgLoadCount, setImgLoadCount] = useState(0);
   const [imgTotal, setImgTotal] = useState(0);
+
+  // Persist state to localStorage whenever key values change
+  useEffect(() => {
+    const state = {
+      rounds,
+      champion,
+      teamMeta,
+      teamNames,
+      teamImages,
+      teamCount,
+      screen,
+      dark,
+      tvMode,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [rounds, champion, teamMeta, teamNames, teamImages, teamCount, screen, dark, tvMode]);
+
+  // Clear saved state (for "New Tournament")
+  const clearSavedState = () => localStorage.removeItem(STORAGE_KEY);
 
   const th = dark ? THEMES.dark : THEMES.light;
   const sc = tvMode ? SCALES.tv : SCALES.normal;
@@ -1037,7 +1067,7 @@ export default function App() {
             <IconBtn onClick={() => setTvMode(!tvMode)} title={tvMode?'Normal view':'TV mode'} active={tvMode} th={th}>{tvMode?'📺':'🖥'}</IconBtn>
             <IconBtn onClick={() => setDark(!dark)} title={dark?'Light mode':'Dark mode'} active={false} th={th}>{dark?'☀️':'🌙'}</IconBtn>
             <IconBtn onClick={handlePrint} title="Print bracket" active={false} th={th}>🖨️</IconBtn>
-            <button onClick={() => setScreen('setup')} style={{ background:'none',border:`1.5px solid ${th.btnGhostBorder}`,color:th.btnGhostText,padding:tvMode?'9px 20px':'7px 16px',borderRadius:8,cursor:'pointer',fontFamily:"'Rajdhani',sans-serif",fontSize:tvMode?14:12,fontWeight:700,letterSpacing:1.5,transition:'all 0.15s' }}
+            <button onClick={() => { clearSavedState(); setRounds(null); setChampion(null); setTeamMeta({}); setTeamNames(Array.from({length:8},(_,i)=>`Team ${i+1}`)); setTeamImages(Array(32).fill(null)); setTeamCount(8); setScreen('setup'); }} style={{ background:'none',border:`1.5px solid ${th.btnGhostBorder}`,color:th.btnGhostText,padding:tvMode?'9px 20px':'7px 16px',borderRadius:8,cursor:'pointer',fontFamily:"'Rajdhani',sans-serif",fontSize:tvMode?14:12,fontWeight:700,letterSpacing:1.5,transition:'all 0.15s' }}
               onMouseEnter={e=>{e.currentTarget.style.borderColor=th.btnGhostHover;e.currentTarget.style.color=th.btnGhostHover;}}
               onMouseLeave={e=>{e.currentTarget.style.borderColor=th.btnGhostBorder;e.currentTarget.style.color=th.btnGhostText;}}>
               NEW
